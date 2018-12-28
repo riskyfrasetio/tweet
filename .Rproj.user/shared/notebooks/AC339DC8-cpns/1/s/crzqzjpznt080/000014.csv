@@ -1,0 +1,2 @@
+"0","dat100=tes[1:50]"
+"0","datatable(dat100, rownames = FALSE, filter=""top"", escape=FALSE, options = list(pageLength = 5, scrollX=T))"

@@ -1,0 +1,219 @@
+rm(list=ls())
+acq.channel=read.csv(choose.files(),sep=",")
+useractive=read.csv(choose.files(),sep=",")
+userinstall=read.csv(choose.files(),sep=",")
+acq.channel$DeviceId=as.character(acq.channel$DeviceId)
+acq.channel$Channel=as.character(acq.channel$Channel)
+useractive$ActiveDate=as.Date(useractive$ActiveDate)
+useractive$DeviceId=as.character(useractive$DeviceId)
+userinstall$InstallDate=as.Date(userinstall$InstallDate)
+userinstall$DeviceId=as.character(userinstall$DeviceId)
+acq.channel=acq.channel[order(acq.channel$DeviceId),]
+useractive=useractive[order(useractive$DeviceId),]
+userinstall=userinstall[order(userinstall$DeviceId),]
+
+length(unique(useractive$DeviceId))
+length(unique(userinstall$DeviceId))
+length(unique(acq.channel$DeviceId))
+
+#disini terdapat id yang missing pada data userinstall karena jumlah id yang unik pada data userinstall lebih sedikit dibandingkan jumlah id yang unik pada data useractive dan data acquisition channel.   
+
+#contoh duplikasi pada tabel userinstall
+userinstall[userinstall[,2]=="13d94c6903a7c067",]
+useractive[useractive[,2]=="13d94c6903a7c067",]
+
+#cleanning data
+#mencari jumlah duplikasi id pada userinstall
+dim(userinstall[duplicated(userinstall$DeviceId)|duplicated(userinstall$DeviceId,fromLast = TRUE),])[1]
+duplicate=userinstall[duplicated(userinstall$DeviceId)|duplicated(userinstall$DeviceId,fromLast = TRUE),]
+
+#hanya menggunakan waktu pertama kali install dari suatu id yang sama
+index.min=c()
+for (i in 1:length(unique(duplicate$DeviceId))){
+  id.dup=which(userinstall$DeviceId==unique(duplicate$DeviceId)[i])
+  idx=min(id.dup)
+  index.min=c(index.min,idx)
+}
+
+user.install.no.dup=userinstall[!(duplicated(userinstall$DeviceId)|duplicated(userinstall$DeviceId,fromLast = TRUE)),]
+userinstall.clean=rbind(user.install.no.dup,userinstall[index.min,])
+userinstall.clean=userinstall.clean[order(userinstall.clean$DeviceId),]
+
+#membuat tabel last active untuk setiap id dari data useractive
+dup.aktive=useractive[duplicated(useractive$DeviceId)|duplicated(useractive$DeviceId,fromLast = TRUE),]
+id.unique.last=function(deviceid){
+  indeks=c()
+  for (i in unique(deviceid)){
+    id=which(deviceid==i)
+  if (length(id)>1) id=max(id)
+  indeks=c(indeks,id)
+  }
+  return(indeks)
+}
+
+user.lastactive=useractive[id.unique.last(useractive$DeviceId),]
+
+#jumlah id yang terdapat pada data useraktive namun tidak terdapat pada userinstall
+length(user.lastactive[!(user.lastactive$DeviceId %in% userinstall.clean$DeviceId),"DeviceId"])
+#contoh id yang terdapat pada data useraktive namun tidak terdapat pada userinstall
+head(user.lastactive[!(user.lastactive$DeviceId %in% userinstall.clean$DeviceId ),])
+
+#selanjutnya saya akan menghapus data id yang terdapat pada useractive namun tidak terdapat pada userinstall 
+valid.row=user.lastactive$DeviceId %in% userinstall.clean$DeviceId
+user.lastactive.clean=user.lastactive[valid.row,]
+user.lastactive.clean$time.active=user.lastactive.clean$ActiveDate-userinstall.clean$InstallDate
+user.lastactive.clean$Install.date=userinstall.clean$InstallDate
+user.lastactive.clean=user.lastactive.clean[,c(4,1,2,3)]
+
+# selanjutnya melihat data id pada acquisition channel yang tidak terdapat pada data user.lastactive
+length(acq.channel[!(acq.channel$DeviceId %in% user.lastactive$DeviceId ),"DeviceId"])
+head(acq.channel[!(acq.channel$DeviceId %in% user.lastactive$DeviceId ),"DeviceId"])
+
+# saya akan menggunakan id yang merupakan intersect dari data acquisition channel dan data user.last.active
+valid.row=user.lastactive.clean$DeviceId %in% acq.channel$DeviceId
+user.lastactive.clean.channel=user.lastactive.clean[valid.row,]
+# saya menambahkan kolom channel ke data user.lastactive yang sudah clean
+user.lastactive.clean.channel$Channel=acq.channel[which(acq.channel$DeviceId %in% user.lastactive.clean.channel$DeviceId),"Channel"]
+
+#saya urutkan berdasarkan channel dan tanggal aktif terakhir
+user.lastactive.clean.channel=user.lastactive.clean.channel[order(user.lastactive.clean.channel$Channel,user.lastactive.clean.channel$ActiveDate),]
+
+library(data.table)
+data.fix=as.data.table(user.lastactive.clean.channel)
+data.fix[1:10]
+data.fix=data.fix[,.N,by=.(ActiveDate,Channel,time.active)]
+setnames(data.fix,c("Date","Channel","Day.Number","Total.User"))
+data.fix[1:20]
+tail(data.fix,10)
+
+# N per channel
+library(ggplot2)
+ggplot(data.fix,aes(fill=Channel,x=Channel,y=Total.User))+geom_bar(stat="identity")+theme(axis.text.x = element_blank()) + ggtitle("Jumlah User per Channel")
+
+#Secara umum terdapat beberapa channel yang berkontribusi besar dalam memperoleh jumlah user. Tiga Channel yang berkontribusi paling besar yakni Facebook Install, Adwords UAC Install, dan Organic. 
+#untuk lebih detil, saya akan visualisasikan jumlah user per channel dalam bebrapa kategori yakni kelompok 1=jumlah user diatas 500, kelompok 2=jumlah user antara 15-500, kelompok 3=jumlah user antara 2-15, dan kelompok 4=jumlah user dibawah 2.
+
+ggplot(data.fix[Day.Number==0],aes(fill=Channel,x=Channel,y=Total.User))+geom_bar(stat="identity")+theme(axis.text.x = element_blank()) 
+
+tu=data.fix[,sum(Total.User),by=.(Channel)]
+names(tu)[2]="Total.User"
+
+#kel 1
+ggplot(tu[Total.User>500],aes(x=Channel,y=Total.User,fill=Channel))+geom_bar(stat="identity") + ggtitle("Jumlah User Per Channel pada Channel kelompok 1")
+#kel 2
+ggplot(tu[Total.User>15 & Total.User<=500],aes(x=Channel,y=Total.User))+geom_bar(stat="identity")+ ggtitle("Jumlah User Per Channel pada Channel kelompok 2")
+#kel 3
+ggplot(tu[Total.User>2 & Total.User<=15],aes(x=Channel,y=Total.User))+geom_bar(stat="identity")+ ggtitle("Jumlah User Per Channel pada Channel kelompok 3")
+#kel 4
+ggplot(tu[Total.User<=2],aes(x=Channel,y=Total.User))+geom_bar(stat="identity") + ggtitle("Jumlah User Per Channel pada Channel kelompok 4")
+
+#kemudian akan dilihat visualisasi dari waktu lama aktif apabila diikutsertakan pada jumlah user per channel
+#kel 1
+data.fix$Day.Number=as.numeric(data.fix$Day.Number)
+aa=data.fix[data.fix$Channel %in% as.data.frame(tu[Total.User>500,.(Channel)])[,1],-c("Date")]
+aaa=aa[,sum(Total.User),by=.(Channel,Day.Number)]
+names(aaa)[3]="Total.User"
+percent=aaa[,.(Day.Number,(Total.User/sum(Total.User))*100),by=.(Channel)]
+names(percent)[3]="Percent.Total.User"
+ggplot(aaa,aes(x=Channel,y=Total.User,fill=Day.Number))+geom_bar(stat="identity") + ggtitle("Jumlah User Per Channel pada Channel-Channel paling berkontribusi")
+ggplot(percent,aes(x=Channel,y=Percent.Total.User,fill=Day.Number))+geom_bar(stat="identity") + ylab("Percent User")++ ggtitle("Persentase User Per Channel pada Channel-Channel paling berkontribusi")
+
+#adapun pada ketiga channel yang memiliki user terbanyak pada penginstallan aplikasi, hampir setengah jumlah user pada setiap channel hanya aktif pada saat penginstallan aplikasi saja.
+
+daa=data.fix[data.fix$Channel %in% as.data.frame(tu[Total.User>500,.(Channel)])[,1],]
+daaa=daa[,sum(Total.User),by=.(Date,Channel)]
+names(daaa)[3]="Total.User"
+percent.user.date=daaa[,.(Channel,(Total.User/sum(Total.User))*100),by=.(Date)]
+names(percent.user.date)[3]="Percent.Total.User"
+ggplot(daaa,aes(x=Date,y=Total.User))+geom_line(aes(color=Channel)) + ggtitle("Date VS Total User VS High Contributed Channel")
+ggplot(percent.user.date,aes(x=Date,y=Percent.Total.User))+geom_line(aes(color=Channel)) + ggtitle("Date VS Percent User VS High Contributed Channel")
+
+#Pada kelompok channel yang paling berkontribusi, ketiga channel memiliki trend yang sama pada peningkatan jumlah user selama 7 hari terakhir. Jumlah user cenderung naik lebih drastis terhitung satu hari terakhir
+#channel facebook install menyumbang persentase tertinggi tiap hari sejak 11 Oktober hingga 17 Oktober. Sekitar 42 persen user pada tanggal 11 Oktober menginstall aplikasi melalui channel facebook install. Persentase user tersebut terus mengalami kenaikan sampai pada tanggal 13 Oktober, kemudian cenderung mengalami penurunan hingga pada tanggal 17 Oktober. Berbeda dengan channel facebook install, organic justru mengalami trend kenaikan persentase user pada pada 14-17 oktober. Channel adwords UAC install memiliki trend yang fluktuatif. 
+
+#kel 2
+bb=data.fix[data.fix$Channel %in% as.data.frame(tu[Total.User>15 & Total.User<=500,.(Channel)])[,1],-c("Date")]
+bbb=bb[,sum(Total.User),by=.(Channel,Day.Number)]
+names(bbb)[3]="Total.User"
+ggplot(bbb,aes(x=Channel,y=Total.User,fill=Day.Number))+geom_bar(stat="identity") +ggtitle("Jumlah User Per Channel pada Channel-Channel Kelompok 2")
+
+#kel 3
+cc=data.fix[data.fix$Channel %in% as.data.frame(tu[Total.User>2 & Total.User<=15,.(Channel)])[,1],-c("Date")]
+ccc=cc[,sum(Total.User),by=.(Channel,Day.Number)]
+names(ccc)[3]="Total.User"
+ggplot(ccc,aes(x=Channel,y=Total.User,fill=Day.Number))+geom_bar(stat="identity")++ggtitle("Jumlah User Per Channel pada Channel-Channel Kelompok 3")
+
+#kel 4
+dd=data.fix[data.fix$Channel %in% as.data.frame(tu[Total.User<=2,.(Channel)])[,1],-c("Date")]
+ddd=dd[,sum(Total.User),by=.(Channel,Day.Number)]
+names(ddd)[3]="Total.User"
+ggplot(ddd,aes(x=Channel,y=Total.User,fill=Day.Number))+geom_bar(stat="identity")++ggtitle("Jumlah User Per Channel pada Channel-Channel Kelompok 4")
+
+#visualisasi dengan adanya unsur date 
+total=data.fix[,sum(Total.User),by=.(Date)]
+names(total)[2]="Total.User"
+ggplot(total[order(Date)],aes(x=Date,y=Total.User))+geom_line(color=4)
+
+chan=data.fix[,sum(Total.User),by=.(Date,Channel)]
+data.fix$Day.Number=as.numeric(data.fix$Day.Number)
+chan.no.nol=data.fix[Day.Number!=0,]
+chan.no.nol=chan.no.nol[,sum(Total.User),by=.(Date,Channel)]
+names(chan.no.nol)[3]="Total.User"
+names(chan)[3]="Total.User"
+ggplot(chan.no.nol,aes(x=Date,y=Total.User))+geom_line(aes(color=Channel))
+ggplot(chan,aes(x=Date,y=Total.User))+geom_line(aes(color=Channel))
+
+day=data.fix[,sum(Total.User),by=.(Date,Day.Number)]
+day$Day.Number=as.numeric(day$Day.Number)
+names(day)[3]="Total.User"
+day0=day[Day.Number==0,sum(Total.User),by=.(Date)]
+day.tot=day[,sum(Total.User),by=.(Date)]
+persen.user.nol.day=(day0$V1/day.tot$V1)*100
+day0$percent.user.leave=persen.user.nol.day 
+ggplot(day0,aes(x=Date,y=percent.user.leave))+geom_line(aes(color=4)) + ggtitle("Persentase User Meninggalkan Aplikasi dari Total User")
+#plot diatas ini merupakan plot persentase jumlah user yang lama waktu aktifnya yakni 0 atau jumlah user yang meninggalkan aplikasi pada saat selesai menginstall aplikasi dari total user yang telah menginstall aplikasi sampe dengan saat itu. Melalui grafik tersebut terlihat persentasi user yang meninggalkan aplikasi cenderung mengalami penurunan selama 7 hari terakhir.
+
+day0=day0[order(day0$Date),]
+day.no0=day[Day.Number!=0,sum(Total.User),by=.(Date)]
+percent.user.nol.day=(day0$V1[day0$Date %in% day.no0$Date]/day.no0$V1[day.no0$Date %in% day0$Date ])*100
+day.no0$percent.leave.no.leave=percent.user.nol.day
+ggplot(day.no0,aes(x=Date,y=percent.leave.no.leave))+geom_line(aes(color=4)) + ggtitle("Persentase User Meninggalkan Aplikasi VS User yang Masih Aktif")
+#plot diatas ini merupakan plot persentase jumlah user yang meninggalkan aplikasi pada saat selesai menginstall aplikasi terhadap jumlah user yang masih aktif menggunakan aplikasi sampe dengan saat itu. Melalui grafik tersebut terlihat bahwa persentase jumlah user yang meninggalkan aplikasi terhadap jumlah user aktif pada saat itu cenderung mengalami penurunan selama 6 hari terakhir terhitung sejak tanggal 12 oktober. meskipun demikian, terjadi penurunan yang cenderung lebih kecil sejak tanggal 13-17 Oktober dibandingkan pada 11-13 Oktober.
+
+day.tot=day.tot[order(day.tot$Date),]
+percent.active=(day.no0$V1[day.no0$Date %in% day.tot$Date ]/day.tot$V1[day.tot$Date %in% day.no0$Date])*100
+day.no0$percent.active=percent.active
+ggplot(day.no0,aes(x=Date,y=percent.active))+geom_line(aes(color=4)) ggtitle("Persentase User Aktif minimal 1 hari Sejak Menginstall Aplikasi")
+#plot diatas ini merupakan plot persentase jumlah user yang masih aktif menggunakan aplikasi dari total user yang telah menginstall aplikasi sampe dengan saat itu. Melalui grafik tersebut terlihat persentasi user yang meninggalkan aplikasi cenderung mengalami peningkatab selama 7 hari terakhir. 
+
+
+for (i in unique(user.lastactive.clean.channel$Channel)){
+  for (j in unique(subset(user.lastactive.clean.channel,Channel==i,select = time.active))){
+    for (k in unique(subset(user.lastactive.clean.channel,Channel==i & time.active==j,select = ActiveDate))){
+      nrow(subset(user.lastactive.clean.channel,Channel==i & time.active==j & ActiveDate==k))
+    }
+  }
+}
+
+Total.user=c()
+Date=c()
+Channel=c()
+Days.Number=c()
+for (i in 1:length(unique(user.lastactive.clean.channel$Channel))){
+  for (j in 1:nrow(subset(user.lastactive.clean.channel,Channel==unique(user.lastactive.clean.channel$Channel)[i],select = time.active))){
+    for (k in 1:nrow(subset(user.lastactive.clean.channel,Channel==unique(user.lastactive.clean.channel$Channel)[i] & time.active==unique(user.lastactive.clean.channel$time.active)[j],select = ActiveDate))){
+        #cat("i =",i," ","j=",j," ","k=",k,"          ")
+      if (nrow(subset(user.lastactive.clean.channel,Channel==unique(user.lastactive.clean.channel$Channel)[i] & time.active==unique(user.lastactive.clean.channel$time.active)[j],select = ActiveDate))==0) next
+      d=unique(user.lastactive.clean.channel$ActiveDate)[k]
+      ch=unique(user.lastactive.clean.channel$Channel)[i]
+      ta=unique(user.lastactive.clean.channel$time.active)[j]
+      tu=nrow(subset(user.lastactive.clean.channel,Channel==unique(user.lastactive.clean.channel$Channel)[i] & time.active==unique(user.lastactive.clean.channel$time.active)[j] & ActiveDate==unique(sort(user.lastactive.clean.channel$ActiveDate))[k]))
+      Total.user=c(Total.user,tu)
+      Date=c(Date,d)
+      Channel=c(Channel,ch)
+      Days.Number=c(Days.Number,ta)
+      }
+  }
+}
+
+

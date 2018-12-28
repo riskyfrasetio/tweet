@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1542823595042.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1068943689",
+    "id" : "F8B27712",
+    "lastKnownWriteTime" : 1543942557,
+    "last_content_update" : 1543942557045,
+    "path" : "D:/kampus/kerja/twt/tt.R",
+    "project_path" : "tt.R",
+    "properties" : {
+        "cursorPosition" : "133,21",
+        "docOutlineVisible" : "0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

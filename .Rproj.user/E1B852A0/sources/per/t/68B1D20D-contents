@@ -1,0 +1,64 @@
+adaboostori=function(X,y,X.test,y.test,iterasi,kernel,gamma=NULL,cost){
+  ## kernel yang digunakan hanya rbf dan linear
+  if(!is.matrix(X)) X=as.matrix(X)
+  if(!is.matrix(X)) X.test=as.matrix(X.test)
+  n=nrow(X)
+  final.test <- rep(0, length(y.test))
+  bobot=rep(1/n,n)
+  final.pred=list()
+  error=c()
+  a=c()
+  Sign=function(x,kelas.positif,kelas.negatif){
+    tanda=ifelse(x>=0,kelas.positif,kelas.negatif)
+    return(tanda)
+  }
+  for (i in 1:iterasi){
+    if(i == 1) { samp=sample(nrow(X), nrow(X), replace = FALSE) } # no replacement in first iteration
+    else if(i != 1) { samp=sample(nrow(X), nrow(X), replace = TRUE, prob = bobot) }
+    X.train=X[samp,]
+    row.names(X.train)=NULL
+    y.train=y[samp]
+    if (length(y.train[y.train==-1])==0|length(y.train[y.train==1])==0) { 
+      cat("y train hanya berisi satu kelas","\n")
+      a[i]=0 
+      final.pred[[i]]=matrix(0,ncol=1,nrow=length(y.test))
+      break}
+    row.names(y.train)=NULL
+    if (kernel=="linear"){
+      weight.svm=svm(x=X.train,y=y.train,scale=F,kernel=kernel,cost=cost)
+    }
+    else {
+      weight.svm=svm(x=X.train,y=y.train,scale=F,kernel=kernel,gamma=gamma,cost=cost)
+    }
+    # weight.svm=wsvm(x=X,y=y,scale=F,kernel="radial",gamma=gamma,cost=cost,case.weights = bobot)
+    pred=predict(weight.svm,X)
+    error[i]=sum(bobot*ifelse(pred!=y,1,0))/sum(bobot)
+    #cat("error=",error,"\n")
+    if (error[i]<=0.000001) { print("iterasi berhenti") 
+      cat("iterasi=",i,"\n")
+      cat("error=",error[i],"\n")
+      # final.pred=ifelse(colnames(final.pred)=="-1/1",-final.pred,final.pred) 
+      a[i]=0 
+      final.pred[[i]]=matrix(0,ncol=1,nrow=length(y.test))
+      break
+    } else if (error[i]>=0.49999) {a[i]=0 ;bobot=rep(1/n,n)} else {a[i]=(1/2)*log((1-error[i])/error[i]);bobot=(bobot*exp(-a[i]*ifelse(pred!=y,-1,1)))/sum(bobot*exp(-a[i]*ifelse(pred!=y,-1,1)))}
+    #print(a)
+    final.pred[[i]]=attr(predict(weight.svm,X.test,decision.values=TRUE),"decision.values")
+    if(colnames(final.pred[[i]])=="-1/1"){
+      final.pred[[i]]=-final.pred[[i]]} else {final.pred[[i]]=final.pred[[i]]}
+    #print(final.pred)
+    #print(final.test)
+    #cat("error")
+    #print(error)
+    }
+  a=a/sum(a)
+  if(is.nan(a[1])) {a=rep(0,length(a))}
+  a=as.list(a)
+  dd=lapply(1:length(final.pred),function(i){final.pred[[i]]*a[[i]]})
+  final.test=do.call("cbind",dd)
+  final.test=rowSums(final.test)
+  prediksi.kelas=Sign(final.test,1,-1)
+  #print(prediksi.kelas)
+  hasil=list(bobot.final=bobot,fit.y=final.test,prediksi.y=prediksi.kelas)
+  return(hasil)
+}

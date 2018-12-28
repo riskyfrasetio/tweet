@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1543918935617.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1013566323",
+    "id" : "F3275B23",
+    "lastKnownWriteTime" : 1542768594,
+    "last_content_update" : 1542768594,
+    "path" : "D:/kampus/kerja/cpns/risky.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "9,13",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

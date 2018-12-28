@@ -1,0 +1,59 @@
+lolos	lulus
+llus	lulus
+lls	lulus
+seleksi kompetensi dasar	skd
+tes kompetensi dasar	skd
+tes	seleksi
+kwalitas	kualitas
+jml	jumlah
+passing grade	pg
+jgn	jangan
+war	perang
+mksd	maksud
+inget	ingat
+hrs	harus
+minim	sedikit
+ketuker	tertukar
+bego	bodoh
+bodo	bodoh
+tlg	tolong
+plis	tolong
+beda	berbeda
+knp	kenapa
+gmn	bagaimana
+gimana	bagaimana
+renking	ranking
+rangking	ranking
+tkb	skb
+dines	dinas
+auto cpns	autopns
+auto pns	autopns
+umur	usia
+standard	standar
+maap	maaf
+terbitt	terbit
+ketukar	tertukar
+amiin	amin
+amiiin	amin
+pasing grade	pg
+prcy	percaya
+pcy	percaya
+aamiin	amin
+ngelunya	pusingnya
+nntn	nonton
+terima kasih	terimakasih
+mmenuhi	memenuhi
+mmnuhi	memenuhi
+ktahui	ketahui
+test	seleksi
+bljr	belajar
+bljar	belajar
+ketrima	keterima
+pie	bagaimana
+piye	bagaimana
+frmasi	formasi
+semangaat	semangat
+semangaaat	semangat
+otmtis pns	autopns
+otomatis cpns	autopns
+otmtis cpns	autopns

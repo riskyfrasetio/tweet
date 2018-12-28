@@ -1,0 +1,211 @@
+---
+title: "Analisis Tweet CPNS 2018"
+author: "Risky Frasetio Wahyu Pratama"
+date: "December 4, 2018"
+output: html_document
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pendahuluan
+
+  Babak baru seleksi calon pegawai negeri sipil 2018 telah dimulai dengan dikeluarkannya surat keputusan Kementerian PAN-RB permenpan No 61 tahun 2018 mengenai optimalisasi pemenuhan kebutuhan/formasi pegawai negeri sipil dalam seleksi calon pegawai negeri sipil tahun 2018. Bagaimana isi nya? Bisa dibaca sendiri ya disini hehe. Seleksi CPNS tahun 2018 ini memang banyak menyedot antusiasme masyarakat untuk berkompetisi menjadi calon aparatur sipil negara. Melalui data Bkn yang saya kutip melalui situs berita [kompas](https://nasional.kompas.com/read/2018/10/17/06194671/bkn-jumlah-pelamar-cpns-2018-di-bawah-target), pada penutupan pendaftaran, jumlah pelamar aktif CPNS yakni sekitar 3.627.981 orang untuk memperebutkan sekitar 238.015 formasi. Persaingan yang cukup ketat bukan.
+  
+  Pelaksanaan seleksi kompetensi dasar (skd) pun sudah berlalu, bahkan semua instansi telah mengumumkan hasil skd di situs web instansi masing-masing. Bagaimana hasilnya? Hanya sekitar 3 persen peserta yang mampu melewati passing grade yang ditentukan. Saya termasuk disini, Maksutnya termasuk yang di golongan 97% nya hehe. Saya menyadari standar yang ditetapkan oleh pemerintah pada pelaksanaan CPNS tahun ini sangatlah tinggi. Menurut saya hal ini masuk akal guna mencapai tujuan dalam memperoleh ASN yang sangat berkualitas, sesuai dengan slogan ASN, #ASNkinibeda.
+  
+  Lalu apa yang menjadi poin saya tertarik menulis ini? Salah satunya jelas sebagai bentuk kekecewaan saya yang gagal di skd, dan sebegaimana diketahui salah satu butir pengamalan sila ke 5 yakni berkarya maka saya memutuskan berkarya dengan menulis tulisan ini. Hanya sebatas intermezo kok, saya penasaran saja melihat banyak sekali perbincangan dan perdebatan dari netizen di media sosial mengenai hasil pelaksaan seleksi CPNS sampai pada tahap pelaksaan skd yang telah dilakukan. Berdasarkan keingintahuan tersebut, Saya mendownload sekitar 11000an data Tweet yang ditulis pada 11-21 November dengan bantuan package R [rtweet](https://rtweet.info/) oleh mkearney. Data retweet tidak saya ikut sertakan untuk mengurangi duplikasi yang ada dan kompleksitas analisis. Selanjutnya, setelah diperoleh data tweet, saya akan bervisualisasi ria dengan data tweet ini.
+    
+## Visualisasi
+
+```{r,include=TRUE,fig.align='center',message=FALSE}
+library(tm)
+library(wordcloud)
+library(stringr)
+library(rtweet)
+library(wordcloud2)
+library(data.table)
+library(proxy)
+library(Rgraphviz)
+library(graph)
+library(ggplot2)
+library(DT)
+load("D:/kampus/kerja/twt/data.RData")
+indeks=function(user){
+id=c()
+for (i in 1:dim(twt)[1]){
+  if (sum(sapply(unlist(twt$mentions_screen_name[i]),function (x) isTRUE(x==user)))==1) {id[i]=i}
+else {id[i]=0}  
+}
+id=id[id!=0]
+return(id)
+}
+id=indeks("BKNgoid")
+tes=as.data.table(twt)
+tes1=tes[,.(created_at,text)]
+tes1$created_at=as.Date(tes1$created_at)
+tes1=tes1[,.N,by=.(created_at)]
+tes2=tes[id,.(created_at,text)]
+tes2$created_at=as.Date(tes2$created_at)
+tes2=tes2[,.N,by=.(created_at)]
+ggplot(data=tes1,aes(x=created_at,y=N))+geom_line(aes(color="Total Tweet"))+geom_line(data=tes2,aes(color="Mention ke BKN"))+xlab("tanggal")+ylab("Jumlah Tweet")+labs(color="Legend text")
+```
+
+Tren jumlah tweet sempat menurun setelah tanggal 13 Nopember, kemudian meningkat lagi pada tanggal 21 Nopember pada saat dikeluarkannya permenpan No 61. Tweet yang menyebut @BKNgoid juga cenderung memiliki tren yang sama. Lumayan aktif ya @BKNgoid disebut. Contoh data tweetnya bisa dlihat di bagian akhir tulisan ini. Kemudian jumlah tweet terbanyak dari sisi user yang menulis tweet kira-kira seperti ini
+
+```{r,include=TRUE,fig.align='center'}
+tweet.user=tes[,.(created_at,screen_name,text)]
+tweet.user$created_at=as.Date(tweet.user$created_at)
+tweet.user1=tweet.user[,.N,by=.(screen_name)]
+tweet.user1=tweet.user1[order(N,decreasing = TRUE)]
+ggplot(tweet.user1[N>30],aes(fill=screen_name,x=screen_name,y=N))+geom_bar(stat="identity")+theme(axis.text.x = element_blank()) + ggtitle("Jumlah Tweet Terbanyak Berdasarkan Username")+xlab("Nama akun")
+```
+
+selanjutnya akan dilakukan text mining mulai dari preprocessing data hingga menghasilkan wordcloud kata yang sering muncul dan network of words.
+
+```{r,include=TRUE,fig.align='center',warning=FALSE}
+teks=twt$text 
+teks=gsub("http[^[[:space:]]*","",teks)
+teks=gsub("@\\w+", "", teks)
+teks=gsub("[^[:alpha:][:space:]]*","",teks)
+teks=gsub("[[:punct:]]", "", teks)
+teks=str_replace_all(teks,"#[a-z,A-Z]*","") 
+teks=tolower(teks) 
+kk=read.csv2(choose.files(),header=FALSE)
+for (i in 1:nrow(kk)){
+  teks=gsub(as.character(kk[i,1]),as.character(kk[i,2]),teks)
+}
+url="https://raw.githubusercontent.com/nurandi/snippet/master/data/stopwords-id.txt"
+stopword=readLines(url)
+stopword=c(stopword,"kali","admin","sbg","haha","klo","dasar","kompetensi","dpt","cpns","biar","dri","nih","lho","dah","terus","iii","hai","via","utk","ternyata","kah","tau","sih","kab","tahu","sdh","krn","aja","untuk","kalo","atas","min","udah","mlm","tgl","berikut","tag","kaka","dlu","mimin","blm","ayo","yah","mari","gue","yaa","ane","yuk","nya","dgn","sdh","skrg","guys","kau","dimana","yaaa","#bkngoid","jadiasn","jadi","tahun","orang","kota","hari","amp","jam","terbaru","besok","naar","pagi","teman","mas","pak","tanggal","baru","pertama","terima","lewat","mulai","kak","pas","terimakasih","satu","masuk","mba","kemarin","sampe","soalnya","menjadi","mbak","iya","banget","udh","malam","gitu","kabupaten","seleksi","tdk","gak","calon","org","thn","kakak","pake","jga","cma","dlm","msh","bro","taun","askmiminbkngoid")
+tweets.teks.corpus <- Corpus(VectorSource(teks))
+a=tm_map(tweets.teks.corpus, function(x)removeWords(x,stopword))
+a=tm_map(a, stripWhitespace)
+a=tm_map(a, removeNumbers)
+tdm=TermDocumentMatrix(a)
+tdm1=removeSparseTerms(tdm,0.999)
+m=as.matrix(tdm1)
+v=sort(rowSums(m),decreasing=TRUE)
+d=data.table(word = names(v),freq=v)
+ggplot(d[freq>=230],aes(x=word,y=freq))+geom_bar(stat="identity",aes(fill=freq))+xlab("KATA")+ylab("JUMLAH")+coord_flip()
+```
+
+tahap preprocessing nya sepertinya tidak clean clean amat dan semi manual, maklum saya belum nemu file kamus slangword bahasa indonesia yang bisa dipakai dan kebetulan saya juga baru belajar. Proses stemming juga saya lewatkan disini. Stopword basenya saya peroleh [disini]("https://raw.githubusercontent.com/nurandi/snippet/master/data/stopwords-id.txt"), terima kasih yang sudah berbaik hati sharing file nya. 
+
+```{r,include=TRUE,fig.align='center'}
+wordcloud2(d,size=1.5)
+```
+
+dari wordcloud dan barplot terlihat kata kata yang memiliki frekuensi terbesar yakni lulus, skd, peserta, skb, dan gagal. Lalu bagaimana hubungan antar kata nya?
+
+```{r,include=TRUE,fig.align='center',fig.height=5,fig.width= 15}
+freq.terms=findFreqTerms(tdm1,lowfreq = 280)
+plot(tdm1,term=freq.terms,corThreshold=0.05,weighting=T,main="network of words freq > 280")
+```
+
+jika dilihat di sebelah kanan jaringan kata, sepertinya itu berkaitan dengan permenpan No. 61. Kata-kata seperti sistem-ranking-pemerintah-kebijakan-penerimaan-formasi-kosong memiliki hubungan yang kuat.   
+
+```{r,include=TRUE}
+findAssocs(tdm1, terms = "lulus", corlimit = 0.1)
+findAssocs(tdm1, terms = "skd", corlimit = 0.1)
+findAssocs(tdm1, terms = "tkp", corlimit = 0.1)
+```
+
+oke, mungkin sampe situ dulu keisengan saya kali ini. Pada intinya sistem seleksi CPNS tahun ini sudah berjalan sangat baik dan adil menurut saya terlepas dari pro dan kontra yang terjadi. Bagi yang belum berhasil, jangan putus asa dan tetap semangat berkarya ya.
+
+
+```{r,include=TRUE}
+dat100=tes[1:50]
+datatable(dat100, rownames = FALSE, filter="top", escape=FALSE, options = list(pageLength = 5, scrollX=T))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

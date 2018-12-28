@@ -1,0 +1,2 @@
+"0","freq.terms=findFreqTerms(tdm1,lowfreq = 280)"
+"0","plot(tdm1,term=freq.terms,corThreshold=0.05,weighting=T,main=""network of words freq > 280"")"

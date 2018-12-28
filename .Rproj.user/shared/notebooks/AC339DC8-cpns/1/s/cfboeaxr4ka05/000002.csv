@@ -1,0 +1,5 @@
+"0","tweet.user=tes[,.(created_at,screen_name,text)]"
+"0","tweet.user$created_at=as.Date(tweet.user$created_at)"
+"0","tweet.user1=tweet.user[,.N,by=.(screen_name)]"
+"0","tweet.user1=tweet.user1[order(N,decreasing = TRUE)]"
+"0","ggplot(tweet.user1[N>30],aes(fill=screen_name,x=screen_name,y=N))+geom_bar(stat=""identity"")+theme(axis.text.x = element_blank()) + ggtitle(""Jumlah Tweet Terbanyak Berdasarkan Username"")+xlab(""Nama akun"")"

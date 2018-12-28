@@ -1,0 +1,76 @@
+library(twitteR)
+library(ROAuth)
+library(tm)
+library(wordcloud)
+library(stringr)
+library(devtools)
+install_github("mkearney/rtweet")
+library(rtweet)
+app='wandy_token'
+consumer_key <- '7hbrEwFI2iDNI2ciq7eVnvpFe'
+consumer_secret <- 'rsIa2yVQpH2QfwQXGwVOXlyRTwHLem2DMKP3kd9DFra7uE4Pxg'
+access_token <- '277948939-2XQqNAdSvdjhOWoH2dFcEGpmKFKDc58opIArNrhy'
+access_secret <- 'j9uJg7HpMNqIQjqUnNeXptHiqlHJm9Ru9KdGbLPBGgkLx'
+
+create_token(app = app,consumer_key = consumer_key,consumer_secret = consumer_secret, access_token = access_token,access_secret = access_secret)
+
+twt=search_tweets(q="#CPNS2018 OR #cpns OR #cpns2018 OR #CPNS OR cpns",n=100000,include_rts=FALSE,type="recent",retryonratelimit = TRUE,lang="id")
+ts_plot(twt,by="days")
+#setup_twitter_oauth(consumer_key,consumer_secret,access_token,access_secret)
+#twt=searchTwitter("#CPNS2018",n=10000,lang = "id",resultType="recent") # mengambil data twit antara 30 juli sampai 30 oktober 2018 dengan maksimal data 500
+#twt = strip_retweets(twt)
+#data.twit=twListToDF(twt)
+teks=twt$text 
+teks=gsub("http[^[[:space:]]*","",teks)
+teks=gsub("@\\w+", "", teks)
+teks=gsub("[^[:alpha:][:space:]]*","",teks)
+teks=gsub("[[:punct:]]", "", teks)
+teks=str_replace_all(teks,"#[a-z,A-Z]*","") #menghapus hastags
+teks=tolower(teks) # tolower untuk membuat huruf kapital jadi huruf kecil
+teks=gsub("gak", "tidak", teks)
+teks=gsub("tdk", "tidak", teks)
+teks=gsub("gk", "tidak", teks)
+url="https://raw.githubusercontent.com/nurandi/snippet/master/data/stopwords-id.txt"
+stopword=readLines(url)
+stopword=c(stopword,"klo","dasar","kompetensi","dpt","cpns","biar","dri","nih","lho","dah","terus","iii","hai","via","utk","ternyata","kah","tau","sih","kab","tahu","sdh","krn","aja","untuk","kalo","atas","min","udah","mlm","tgl","berikut","tag","kaka","dlu","mimin","blm","ayo","yah","mari","gue","yaa","ane","yuk","nya","dgn","sdh","skrg","guys","kau","dimana","yaaa","#bkngoid","jadiasn","jadi","ujiant","tahun","orang","kota","hari","amp","jam","terbaru","besok","naar","pagi","teman","mas","pak","tanggal","baru","pertama","terima","lewat","mulai","kak","pas","terimakasih","satu","masuk","mba","kemarin","sampe","soalnya","menjadi","mbak","iya","banget","udh","malam","gitu","kabupaten","seleksi")
+tweets.teks.corpus <- Corpus(VectorSource(teks))
+a=tm_map(tweets.teks.corpus, function(x)removeWords(x,stopword))
+a=tm_map(a, stripWhitespace)
+a=tm_map(a, removeNumbers)
+dtm=TermDocumentMatrix(a)
+dtm1=removeSparseTerms(dtm,0.999)
+tdm.idf=weightTfIdf(dtm1)
+
+dt=DocumentTermMatrix(a)
+dt1=removeSparseTerms(dt,0.999)
+td.idf=weightTfIdf(dt1)
+
+m=as.matrix(dtm1)
+f=as.matrix(tdm.idf)
+v=sort(rowSums(m),decreasing=TRUE)
+d=data.frame(word = names(v),freq=v)
+head(d, 10)
+worcloud2(data=d)
+wordcloud(words = d$word, freq = d$freq, min.freq = 20,
+          max.words=500, random.order=FALSE, rot.per=0.35, scale=c(3,0.5),
+          colors=brewer.pal(8, "Dark2"))
+barplot(d[1:30,]$freq, las = 2, names.arg = d[1:30,]$word,
+        col ="lightblue", main ="Kata yang Paling Sering Muncul",
+        ylab = "Frekuensi Kata")
+
+g=d
+g[1,2]=5000
+wordcloud2(d)
+
+
+#tdm.idf=weightTfIdf(dtm1)
+
+#idf=log10(ncol(m)/(1+rowSums(m!=0)))
+#idf=diag(idf)
+#tf_idf=crossprod(m,idf)
+#colnames(tf_idf)=rownames(m)
+#tf_idf=tf_idf/sqrt(rowSums(tf_idf^2))
+#f=t(tf_idf)
+
+
+findAssocs(dtm, terms = "gagal", corlimit = 0.3)
